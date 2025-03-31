@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LoginFormProps {
   onLoginSuccess: (userData: any) => void;
@@ -44,6 +44,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
+      console.log('尝试登录:', data.email);
       // 使用Supabase进行登录
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
@@ -51,16 +52,23 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
       });
       
       if (error) {
+        console.error('登录错误详情:', error);
         throw error;
       }
       
+      console.log('登录成功，用户数据:', authData.user);
+      
       if (authData.user) {
         // 获取用户详细资料
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('username, total_words, studied_days')
           .eq('id', authData.user.id)
           .single();
+        
+        if (profileError) {
+          console.log('获取用户资料失败，使用默认值:', profileError);
+        }
         
         const userData = {
           id: authData.user.id,
@@ -70,13 +78,28 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           studiedDays: profileData?.studied_days || 0,
         };
         
+        toast({
+          title: "登录成功",
+          description: `欢迎回来，${userData.username}!`,
+        });
+        
         onLoginSuccess(userData);
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('登录失败:', error);
+      
+      let errorMessage = "登录失败";
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "邮箱或密码不正确";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "邮箱未验证，请查收验证邮件";
+      } else {
+        errorMessage = error.message || "发生未知错误，请稍后重试";
+      }
+      
       toast({
         title: "登录失败",
-        description: error.message || "用户名或密码不正确",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

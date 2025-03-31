@@ -1,13 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js';
-
-// We need to provide fallback values for Supabase URL and key
-// when environment variables are not available
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-url.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
-
-// 创建Supabase客户端实例
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '@/integrations/supabase/client';
 
 // 用户类型定义
 export interface UserData {
@@ -50,3 +42,5 @@ export interface WordProgressDB {
   created_at?: string;
   updated_at?: string;
 }
+
+export { supabase };
