@@ -1,124 +1,98 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Play, BarChart } from 'lucide-react';
-import { categories, getWordsByCategory } from '@/data/wordData';
+import { ChevronRight } from 'lucide-react';
+import { categories } from '@/data/wordData';
 import Navbar from '@/components/Navbar';
-import CategoryCard from '@/components/CategoryCard';
-import WordCard from '@/components/WordCard';
-import ProgressBar from '@/components/ProgressBar';
-import Quiz from '@/components/Quiz';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { markWordAsLearned, getUserProgress } from '@/utils/userProgress';
 import { useToast } from '@/hooks/use-toast';
+import CategoryList from '@/components/CategoryList';
+import WordLearningSection from '@/components/WordLearningSection';
+import QuizSection from '@/components/QuizSection';
+import { supabase } from '@/lib/supabase';
 
 const Index = () => {
   const { toast } = useToast();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('learn');
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [studiedWords, setStudiedWords] = useState<number[]>([]);
-  const [quizScore, setQuizScore] = useState<number | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   
   useEffect(() => {
-    // 检查用户是否已登录
-    const userJson = localStorage.getItem('wordAppUser');
-    if (userJson) {
-      setIsLoggedIn(true);
-      
-      // 加载用户学习进度
-      const userProgress = getUserProgress();
-      if (userProgress) {
-        // 提取所有已学习的单词ID
-        const allStudiedWordIds: number[] = [];
-        userProgress.categories.forEach(category => {
-          category.wordsProgress.forEach(word => {
-            if (word.learned) {
-              allStudiedWordIds.push(word.wordId);
-            }
-          });
-        });
-        setStudiedWords(allStudiedWordIds);
+    // Check if user is logged in
+    const checkUserSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsLoggedIn(true);
+        setUserId(session.user.id);
+        
+        // Load user progress
+        try {
+          const userProgress = await getUserProgress(session.user.id);
+          if (userProgress) {
+            // Extract all learned word IDs
+            const allStudiedWordIds: number[] = [];
+            userProgress.categories.forEach(category => {
+              category.wordsProgress.forEach(word => {
+                if (word.learned) {
+                  allStudiedWordIds.push(word.wordId);
+                }
+              });
+            });
+            setStudiedWords(allStudiedWordIds);
+          }
+        } catch (error) {
+          console.error("Error loading user progress:", error);
+        }
       }
-    }
+    };
+    
+    checkUserSession();
   }, []);
   
   const selectedCategory = selectedCategoryId 
     ? categories.find(cat => cat.id === selectedCategoryId) 
     : null;
   
-  const categoryWords = selectedCategory ? selectedCategory.words : [];
-  
   const handleCategorySelect = (categoryId: number) => {
     setSelectedCategoryId(categoryId);
-    setCurrentWordIndex(0);
     setActiveTab('learn');
   };
   
   const handleBackToCategories = () => {
     setSelectedCategoryId(null);
-    setQuizScore(null);
   };
   
-  const handleNextWord = () => {
-    if (currentWordIndex < categoryWords.length - 1) {
-      setCurrentWordIndex(currentWordIndex + 1);
+  const handleMarkWordAsLearned = async (wordId: number) => {
+    if (!studiedWords.includes(wordId)) {
+      setStudiedWords(prev => [...prev, wordId]);
       
-      // 标记单词为已学习
-      if (!studiedWords.includes(categoryWords[currentWordIndex].id)) {
-        setStudiedWords(prev => [...prev, categoryWords[currentWordIndex].id]);
-        
-        // 如果用户已登录，则保存学习进度
-        if (isLoggedIn && selectedCategoryId) {
-          const userJson = localStorage.getItem('wordAppUser');
-          if (userJson) {
-            const userData = JSON.parse(userJson);
-            markWordAsLearned(
-              userData.username, 
-              selectedCategoryId, 
-              categoryWords[currentWordIndex].id
-            );
-          }
+      // If user is logged in, save learning progress
+      if (isLoggedIn && userId && selectedCategoryId && selectedCategory) {
+        try {
+          await markWordAsLearned(
+            userId, 
+            selectedCategoryId, 
+            wordId,
+            selectedCategory.name
+          );
+        } catch (error) {
+          console.error("Error saving word progress:", error);
         }
       }
     }
   };
   
-  const handlePreviousWord = () => {
-    if (currentWordIndex > 0) {
-      setCurrentWordIndex(currentWordIndex - 1);
-    }
-  };
-  
   const handleQuizComplete = (score: number) => {
-    setQuizScore(score);
-    
-    // 如果用户已登录，记录测验结果
+    // Record quiz result if user is logged in
     if (isLoggedIn) {
       toast({
         title: "测验完成",
-        description: `您的得分: ${score}/${categoryWords.slice(0, 5).length}`,
+        description: `您的得分: ${score}/${selectedCategory?.words.slice(0, 5).length || 5}`,
       });
     }
   };
-  
-  // 计算选定类别的进度
-  const calculateProgress = () => {
-    if (!selectedCategory) return { current: 0, total: 0 };
-    
-    const categoryWordIds = selectedCategory.words.map(word => word.id);
-    const studiedWordsInCategory = studiedWords.filter(id => 
-      categoryWordIds.includes(id)
-    );
-    
-    return {
-      current: studiedWordsInCategory.length,
-      total: selectedCategory.words.length
-    };
-  };
-  
-  const progress = calculateProgress();
   
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -142,12 +116,6 @@ const Index = () => {
       <main className="container max-w-md mx-auto p-4">
         {selectedCategoryId ? (
           <div>
-            <ProgressBar 
-              current={progress.current} 
-              total={progress.total}
-              className="mb-4" 
-            />
-            
             <Tabs 
               defaultValue="learn" 
               value={activeTab}
@@ -160,74 +128,27 @@ const Index = () => {
               </TabsList>
               
               <TabsContent value="learn" className="mt-4">
-                {categoryWords.length > 0 && (
-                  <WordCard 
-                    word={categoryWords[currentWordIndex]}
-                    onNext={handleNextWord}
-                    onPrevious={handlePreviousWord}
-                  />
-                )}
+                <WordLearningSection 
+                  categoryId={selectedCategoryId}
+                  studiedWords={studiedWords}
+                  onMarkWordAsLearned={handleMarkWordAsLearned}
+                  onSwitchToQuiz={() => setActiveTab('quiz')}
+                />
               </TabsContent>
               
               <TabsContent value="quiz" className="mt-4">
-                {quizScore !== null ? (
-                  <div className="text-center">
-                    <p className="text-lg mb-4">
-                      您的得分: <span className="font-bold">{quizScore}/{categoryWords.slice(0, 5).length}</span>
-                    </p>
-                    <Button 
-                      onClick={() => setQuizScore(null)}
-                      className="mt-4 bg-teal-500 hover:bg-teal-600"
-                    >
-                      再次测验
-                    </Button>
-                  </div>
-                ) : (
-                  <Quiz 
-                    words={categoryWords.slice(0, 5)} 
-                    onComplete={handleQuizComplete}
-                  />
-                )}
+                <QuizSection 
+                  categoryId={selectedCategoryId}
+                  onQuizComplete={handleQuizComplete} 
+                />
               </TabsContent>
             </Tabs>
-            
-            {activeTab === 'learn' && (
-              <div className="flex justify-center mt-6">
-                <Button 
-                  onClick={() => setActiveTab('quiz')}
-                  className="bg-teal-500 hover:bg-teal-600"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  开始测验
-                </Button>
-              </div>
-            )}
           </div>
         ) : (
-          <div>
-            <div className="bg-gradient-to-r from-teal-400 to-blue-400 rounded-xl p-5 text-white mb-6">
-              <h2 className="text-xl font-bold mb-2">欢迎使用单词学习！</h2>
-              <p className="mb-4 opacity-90">选择一个类别开始学习新单词</p>
-              <div className="flex items-center bg-white/20 rounded-lg p-3">
-                <BarChart className="h-10 w-10 mr-3 text-white" />
-                <div>
-                  <p className="font-medium">已学习单词</p>
-                  <p className="text-2xl font-bold">{studiedWords.length}</p>
-                </div>
-              </div>
-            </div>
-            
-            <h2 className="text-lg font-medium mb-3">学习类别</h2>
-            <div className="grid gap-4">
-              {categories.map(category => (
-                <CategoryCard 
-                  key={category.id}
-                  category={category}
-                  onClick={() => handleCategorySelect(category.id)}
-                />
-              ))}
-            </div>
-          </div>
+          <CategoryList 
+            studiedWords={studiedWords}
+            onCategorySelect={handleCategorySelect}
+          />
         )}
       </main>
       
