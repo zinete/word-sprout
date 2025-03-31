@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronRight, Play, BarChart } from 'lucide-react';
 import { categories, getWordsByCategory } from '@/data/wordData';
 import Navbar from '@/components/Navbar';
@@ -9,13 +9,40 @@ import ProgressBar from '@/components/ProgressBar';
 import Quiz from '@/components/Quiz';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { markWordAsLearned, getUserProgress } from '@/utils/userProgress';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
+  const { toast } = useToast();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('learn');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [studiedWords, setStudiedWords] = useState<number[]>([]);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    // 检查用户是否已登录
+    const userJson = localStorage.getItem('wordAppUser');
+    if (userJson) {
+      setIsLoggedIn(true);
+      
+      // 加载用户学习进度
+      const userProgress = getUserProgress();
+      if (userProgress) {
+        // 提取所有已学习的单词ID
+        const allStudiedWordIds: number[] = [];
+        userProgress.categories.forEach(category => {
+          category.wordsProgress.forEach(word => {
+            if (word.learned) {
+              allStudiedWordIds.push(word.wordId);
+            }
+          });
+        });
+        setStudiedWords(allStudiedWordIds);
+      }
+    }
+  }, []);
   
   const selectedCategory = selectedCategoryId 
     ? categories.find(cat => cat.id === selectedCategoryId) 
@@ -38,9 +65,22 @@ const Index = () => {
     if (currentWordIndex < categoryWords.length - 1) {
       setCurrentWordIndex(currentWordIndex + 1);
       
-      // Mark word as studied
+      // 标记单词为已学习
       if (!studiedWords.includes(categoryWords[currentWordIndex].id)) {
-        setStudiedWords([...studiedWords, categoryWords[currentWordIndex].id]);
+        setStudiedWords(prev => [...prev, categoryWords[currentWordIndex].id]);
+        
+        // 如果用户已登录，则保存学习进度
+        if (isLoggedIn && selectedCategoryId) {
+          const userJson = localStorage.getItem('wordAppUser');
+          if (userJson) {
+            const userData = JSON.parse(userJson);
+            markWordAsLearned(
+              userData.username, 
+              selectedCategoryId, 
+              categoryWords[currentWordIndex].id
+            );
+          }
+        }
       }
     }
   };
@@ -53,9 +93,17 @@ const Index = () => {
   
   const handleQuizComplete = (score: number) => {
     setQuizScore(score);
+    
+    // 如果用户已登录，记录测验结果
+    if (isLoggedIn) {
+      toast({
+        title: "测验完成",
+        description: `您的得分: ${score}/${categoryWords.slice(0, 5).length}`,
+      });
+    }
   };
   
-  // Calculate progress for the selected category
+  // 计算选定类别的进度
   const calculateProgress = () => {
     if (!selectedCategory) return { current: 0, total: 0 };
     
@@ -124,6 +172,9 @@ const Index = () => {
               <TabsContent value="quiz" className="mt-4">
                 {quizScore !== null ? (
                   <div className="text-center">
+                    <p className="text-lg mb-4">
+                      您的得分: <span className="font-bold">{quizScore}/{categoryWords.slice(0, 5).length}</span>
+                    </p>
                     <Button 
                       onClick={() => setQuizScore(null)}
                       className="mt-4 bg-teal-500 hover:bg-teal-600"
