@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { LogIn } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,23 +15,27 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 interface LoginFormProps {
   onLoginSuccess: (userData: any) => void;
 }
 
-interface LoginFormValues {
-  username: string;
-  password: string;
-}
+const loginSchema = z.object({
+  email: z.string().email({ message: '请输入有效的邮箱地址' }),
+  password: z.string().min(6, { message: '密码至少需要6个字符' }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -38,26 +44,39 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
-      // 临时模拟登录，后续需要更换为真实的API调用
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 使用Supabase进行登录
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
       
-      // 模拟登录成功
-      const mockUserData = {
-        username: data.username,
-        totalWords: 42,
-        studiedDays: 5,
-      };
+      if (error) {
+        throw error;
+      }
       
-      // 存储登录状态到本地存储
-      localStorage.setItem('wordAppUser', JSON.stringify(mockUserData));
-      
-      onLoginSuccess(mockUserData);
-    } catch (error) {
+      if (authData.user) {
+        // 获取用户详细资料
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('username, total_words, studied_days')
+          .eq('id', authData.user.id)
+          .single();
+        
+        const userData = {
+          id: authData.user.id,
+          email: authData.user.email,
+          username: profileData?.username || authData.user.email?.split('@')[0] || '用户',
+          totalWords: profileData?.total_words || 0,
+          studiedDays: profileData?.studied_days || 0,
+        };
+        
+        onLoginSuccess(userData);
+      }
+    } catch (error: any) {
       console.error('Login error:', error);
       toast({
         title: "登录失败",
-        description: "用户名或密码不正确",
+        description: error.message || "用户名或密码不正确",
         variant: "destructive",
       });
     } finally {
@@ -73,12 +92,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="username"
+            name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>用户名</FormLabel>
+                <FormLabel>邮箱</FormLabel>
                 <FormControl>
-                  <Input placeholder="请输入用户名" {...field} />
+                  <Input placeholder="请输入邮箱" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

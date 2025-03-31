@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, BookOpenText, LogOut, BookMarked, Save } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -7,55 +7,91 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import ProgressBar from '@/components/ProgressBar';
-import { categories } from '@/data/wordData';
 import { useToast } from '@/hooks/use-toast';
 import LoginForm from '@/components/LoginForm';
 import RegisterForm from '@/components/RegisterForm';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, loading, signOut, updateUserProfile } = useAuth();
   const [showLoginForm, setShowLoginForm] = useState(true);
-  const [userData, setUserData] = useState({
-    username: '用户001',
-    totalWords: 42,
-    studiedDays: 5,
-  });
+  const [studiedCategories, setStudiedCategories] = useState<{ id: number; name: string; progress: number }[]>([]);
 
-  // 这里应该从本地存储或者状态管理中获取用户学习进度
-  const studiedCategories = [
-    { id: 1, name: '基础词汇', progress: 60 },
-    { id: 2, name: '动物名称', progress: 30 },
-  ];
+  // 获取用户学习过的类别
+  useEffect(() => {
+    const fetchStudiedCategories = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('category_progress')
+            .select('category_id, name, progress')
+            .eq('user_id', user.id);
+            
+          if (error) {
+            throw error;
+          }
+          
+          if (data) {
+            setStudiedCategories(data.map(category => ({
+              id: category.category_id,
+              name: category.name,
+              progress: category.progress
+            })));
+          }
+        } catch (error) {
+          console.error('Error fetching studied categories:', error);
+        }
+      }
+    };
+    
+    if (user) {
+      fetchStudiedCategories();
+    }
+  }, [user]);
 
-  const handleLogout = () => {
-    // 实际应用中应该调用注销API
-    setIsLoggedIn(false);
-    toast({
-      title: "已注销",
-      description: "您已成功退出登录",
-    });
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "已注销",
+        description: "您已成功退出登录",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "注销失败",
+        description: "退出登录过程中发生错误",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSaveProgress = () => {
-    // 实际应用中应该调用保存API
-    toast({
-      title: "保存成功",
-      description: "您的学习进度已保存",
-    });
+  const handleSaveProgress = async () => {
+    if (!user) return;
+    
+    try {
+      // 这里我们只需要让用户知道他们的进度已经自动保存了
+      toast({
+        title: "进度已保存",
+        description: "您的学习进度会自动保存",
+      });
+    } catch (error) {
+      console.error('Save progress error:', error);
+      toast({
+        title: "保存失败",
+        description: "保存进度过程中发生错误",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLoginSuccess = (userData: any) => {
-    setIsLoggedIn(true);
-    setUserData({
-      username: userData.username || '用户001',
-      totalWords: userData.totalWords || 42,
-      studiedDays: userData.studiedDays || 5,
-    });
     toast({
       title: "登录成功",
-      description: "欢迎回来！" + (userData.username || '用户001'),
+      description: "欢迎回来！" + (userData.username || userData.email),
     });
   };
 
@@ -71,6 +107,17 @@ const Profile = () => {
     setShowLoginForm(!showLoginForm);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-teal-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white p-4 shadow-sm">
@@ -78,7 +125,7 @@ const Profile = () => {
       </header>
 
       <main className="container max-w-md mx-auto p-4">
-        {isLoggedIn ? (
+        {user ? (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-teal-400 to-blue-400 rounded-xl p-5 text-white">
               <div className="flex items-center mb-4">
@@ -86,18 +133,18 @@ const Profile = () => {
                   <User className="h-8 w-8" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">{userData.username}</h2>
-                  <p className="opacity-90">已学习 {userData.totalWords} 个单词</p>
+                  <h2 className="text-xl font-bold">{user.username}</h2>
+                  <p className="opacity-90">{user.email}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="bg-white/20 p-3 rounded-lg">
                   <p className="text-sm opacity-90">学习天数</p>
-                  <p className="text-xl font-bold">{userData.studiedDays} 天</p>
+                  <p className="text-xl font-bold">{user.studiedDays} 天</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <p className="text-sm opacity-90">单词数量</p>
-                  <p className="text-xl font-bold">{userData.totalWords}</p>
+                  <p className="text-xl font-bold">{user.totalWords}</p>
                 </div>
               </div>
             </div>
