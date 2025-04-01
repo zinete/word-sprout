@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { User } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,20 +15,16 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RegisterFormProps {
   onRegisterSuccess: () => void;
 }
 
 const registerSchema = z.object({
-  username: z.string().min(3, { message: '用户名至少需要3个字符' }),
+  username: z.string().min(2, { message: '用户名至少需要2个字符' }),
   email: z.string().email({ message: '请输入有效的邮箱地址' }),
   password: z.string().min(6, { message: '密码至少需要6个字符' }),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: '两次输入的密码不一致',
-  path: ['confirmPassword'],
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -43,7 +39,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
       username: '',
       email: '',
       password: '',
-      confirmPassword: '',
     },
   });
 
@@ -51,7 +46,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
     setIsLoading(true);
     
     try {
-      // 使用Supabase注册用户
+      console.log('尝试注册:', data.email);
+      
+      // 使用Supabase进行注册
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -63,12 +60,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
       });
       
       if (error) {
+        console.error('注册错误详情:', error);
         throw error;
       }
       
+      console.log('注册成功，用户数据:', authData);
+      
       if (authData.user) {
         // 创建用户资料
-        const { error: profileError } = await supabase
+        await supabase
           .from('profiles')
           .insert({
             id: authData.user.id,
@@ -77,21 +77,27 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
             total_words: 0,
             studied_days: 0,
           });
-          
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
         
-        // 注册成功后退出登录
-        await supabase.auth.signOut();
+        toast({
+          title: "注册成功",
+          description: "请验证您的邮箱以完成注册",
+        });
         
         onRegisterSuccess();
       }
     } catch (error: any) {
-      console.error('Register error:', error);
+      console.error('注册失败:', error);
+      
+      let errorMessage = "注册失败";
+      if (error.message.includes("User already registered")) {
+        errorMessage = "该邮箱已注册，请直接登录";
+      } else {
+        errorMessage = error.message || "发生未知错误，请稍后重试";
+      }
+      
       toast({
         title: "注册失败",
-        description: error.message || "注册过程中发生错误，请稍后再试",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -101,7 +107,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-center mb-6">注册新账号</h2>
+      <h2 className="text-xl font-bold text-center mb-6">注册账号</h2>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -147,20 +153,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
             )}
           />
           
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>确认密码</FormLabel>
-                <FormControl>
-                  <Input type="password" placeholder="请再次输入密码" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
           <Button 
             type="submit" 
             className="w-full bg-teal-500 hover:bg-teal-600"
@@ -170,7 +162,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
               <span>注册中...</span>
             ) : (
               <>
-                <User className="h-4 w-4 mr-2" />
+                <UserPlus className="h-4 w-4 mr-2" />
                 注册
               </>
             )}
