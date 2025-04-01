@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 interface LoginFormProps {
   onLoginSuccess: (userData: any) => void;
@@ -31,6 +31,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn, user } = useAuth();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -45,45 +46,21 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     
     try {
       console.log('尝试登录:', data.email);
-      // 使用Supabase进行登录
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      // 使用Auth上下文进行登录
+      await signIn(data.email, data.password);
+      
+      // 登录后，user会通过AuthContext自动更新
+      // 但因为异步更新，这里不一定能立即获取到最新user
+      // 所以显示成功消息就可以了，相关数据会自动更新
+      toast({
+        title: "登录成功",
+        description: "欢迎回来!",
       });
       
-      if (error) {
-        console.error('登录错误详情:', error);
-        throw error;
-      }
-      
-      console.log('登录成功，用户数据:', authData.user);
-      
-      if (authData.user) {
-        // 获取用户详细资料
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('username, total_words, studied_days')
-          .eq('id', authData.user.id)
-          .single();
-        
-        if (profileError) {
-          console.log('获取用户资料失败，使用默认值:', profileError);
-        }
-        
-        const userData = {
-          id: authData.user.id,
-          email: authData.user.email,
-          username: profileData?.username || authData.user.email?.split('@')[0] || '用户',
-          totalWords: profileData?.total_words || 0,
-          studiedDays: profileData?.studied_days || 0,
-        };
-        
-        toast({
-          title: "登录成功",
-          description: `欢迎回来，${userData.username}!`,
-        });
-        
-        onLoginSuccess(userData);
+      // 由于身份验证状态现在由全局AuthContext管理，
+      // onLoginSuccess回调可能不再必要，但为保持API兼容性，仍然调用它
+      if (user) {
+        onLoginSuccess(user);
       }
     } catch (error: any) {
       console.error('登录失败:', error);

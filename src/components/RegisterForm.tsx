@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 interface RegisterFormProps {
   onRegisterSuccess: () => void;
@@ -32,6 +32,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { signUp } = useAuth();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -48,43 +49,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegisterSuccess }) => {
     try {
       console.log('尝试注册:', data.email);
       
-      // 使用Supabase进行注册
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            username: data.username,
-          }
-        }
+      // 使用Auth上下文进行注册
+      await signUp(data.email, data.password, data.username);
+      
+      toast({
+        title: "注册成功",
+        description: "请验证您的邮箱以完成注册",
       });
       
-      if (error) {
-        console.error('注册错误详情:', error);
-        throw error;
-      }
-      
-      console.log('注册成功，用户数据:', authData);
-      
-      if (authData.user) {
-        // 创建用户资料
-        await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            username: data.username,
-            email: data.email,
-            total_words: 0,
-            studied_days: 0,
-          });
-        
-        toast({
-          title: "注册成功",
-          description: "请验证您的邮箱以完成注册",
-        });
-        
-        onRegisterSuccess();
-      }
+      onRegisterSuccess();
     } catch (error: any) {
       console.error('注册失败:', error);
       
