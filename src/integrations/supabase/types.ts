@@ -9,21 +9,129 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      user_info: {
+      category_progress: {
         Row: {
-          created_at: string
-          id: number
-          nikeName: string | null
+          category_id: number
+          created_at: string | null
+          id: string
+          name: string
+          progress: number | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          created_at?: string
-          id?: number
-          nikeName?: string | null
+          category_id: number
+          created_at?: string | null
+          id?: string
+          name: string
+          progress?: number | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          created_at?: string
-          id?: number
-          nikeName?: string | null
+          category_id?: number
+          created_at?: string | null
+          id?: string
+          name?: string
+          progress?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          studied_days: number | null
+          total_words: number | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          studied_days?: number | null
+          total_words?: number | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          studied_days?: number | null
+          total_words?: number | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      user_progress: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_study_date: string | null
+          studied_days: number | null
+          total_words: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_study_date?: string | null
+          studied_days?: number | null
+          total_words?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_study_date?: string | null
+          studied_days?: number | null
+          total_words?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      word_progress: {
+        Row: {
+          category_id: number
+          created_at: string | null
+          id: string
+          last_review_date: string | null
+          learned: boolean | null
+          review_count: number | null
+          updated_at: string | null
+          user_id: string
+          word_id: number
+        }
+        Insert: {
+          category_id: number
+          created_at?: string | null
+          id?: string
+          last_review_date?: string | null
+          learned?: boolean | null
+          review_count?: number | null
+          updated_at?: string | null
+          user_id: string
+          word_id: number
+        }
+        Update: {
+          category_id?: number
+          created_at?: string | null
+          id?: string
+          last_review_date?: string | null
+          learned?: boolean | null
+          review_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+          word_id?: number
         }
         Relationships: []
       }

@@ -37,7 +37,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress | nu
       .single();
       
     if (userProgressError) {
-      console.error('Error fetching user progress:', userProgressError);
+      console.error('获取用户进度错误:', userProgressError);
       return null;
     }
     
@@ -48,7 +48,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress | nu
       .eq('user_id', userId);
       
     if (categoriesError) {
-      console.error('Error fetching category progress:', categoriesError);
+      console.error('获取类别进度错误:', categoriesError);
       return null;
     }
     
@@ -59,7 +59,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress | nu
       .eq('user_id', userId);
       
     if (wordsError) {
-      console.error('Error fetching word progress:', wordsError);
+      console.error('获取单词进度错误:', wordsError);
       return null;
     }
     
@@ -92,7 +92,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress | nu
       categories,
     };
   } catch (error) {
-    console.error('Error getting user progress:', error);
+    console.error('获取用户进度错误:', error);
     return null;
   }
 };
@@ -108,7 +108,7 @@ export const saveUserProgress = async (progress: UserProgress): Promise<void> =>
         studied_days: progress.studiedDays,
         last_study_date: progress.lastStudyDate,
         total_words: progress.totalWords,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       });
       
     if (userProgressError) {
@@ -124,11 +124,11 @@ export const saveUserProgress = async (progress: UserProgress): Promise<void> =>
           category_id: category.categoryId,
           name: category.name,
           progress: category.progress,
-          updated_at: new Date(),
+          updated_at: new Date().toISOString(),
         });
         
       if (categoryError) {
-        console.error(`Error updating category ${category.categoryId}:`, categoryError);
+        console.error(`更新类别 ${category.categoryId} 错误:`, categoryError);
       }
       
       // 更新单词进度
@@ -142,16 +142,16 @@ export const saveUserProgress = async (progress: UserProgress): Promise<void> =>
             learned: word.learned,
             review_count: word.reviewCount,
             last_review_date: word.lastReviewDate,
-            updated_at: new Date(),
+            updated_at: new Date().toISOString(),
           });
           
         if (wordError) {
-          console.error(`Error updating word ${word.wordId}:`, wordError);
+          console.error(`更新单词 ${word.wordId} 错误:`, wordError);
         }
       }
     }
   } catch (error) {
-    console.error('Error saving user progress:', error);
+    console.error('保存用户进度错误:', error);
     throw error;
   }
 };
@@ -356,7 +356,7 @@ export const markWordAsLearned = async (
     
     return userProgress;
   } catch (error) {
-    console.error('Error marking word as learned:', error);
+    console.error('标记单词为已学习错误:', error);
     throw error;
   }
 };
@@ -403,7 +403,7 @@ export const getWordLearningStatus = async (
       lastReviewDate: data.last_review_date,
     };
   } catch (error) {
-    console.error('Error getting word learning status:', error);
+    console.error('获取单词学习状态错误:', error);
     return null;
   }
 };
@@ -457,7 +457,7 @@ export const getCategoryProgress = async (
       wordsProgress,
     };
   } catch (error) {
-    console.error('Error getting category progress:', error);
+    console.error('获取类别进度错误:', error);
     return null;
   }
 };
