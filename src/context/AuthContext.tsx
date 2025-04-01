@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...(data.username && { username: data.username }),
         ...(data.totalWords !== undefined && { total_words: data.totalWords }),
         ...(data.studiedDays !== undefined && { studied_days: data.studiedDays }),
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(), // Convert Date to ISO string
       };
 
       const { error } = await supabase
