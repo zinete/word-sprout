@@ -1,17 +1,16 @@
-
-import React from 'react';
-import { BarChart } from 'lucide-react';
-import { categories } from '@/data/wordData';
-import CategoryCard from '@/components/CategoryCard';
+import React from "react";
+import { BarChart } from "lucide-react";
+import { categories } from "@/data/wordData";
+import CategoryCard from "@/components/CategoryCard";
 
 interface CategoryListProps {
   studiedWords: number[];
   onCategorySelect: (categoryId: number) => void;
 }
 
-const CategoryList: React.FC<CategoryListProps> = ({ 
-  studiedWords, 
-  onCategorySelect 
+const CategoryList: React.FC<CategoryListProps> = ({
+  studiedWords,
+  onCategorySelect,
 }) => {
   return (
     <div>
@@ -26,11 +25,11 @@ const CategoryList: React.FC<CategoryListProps> = ({
           </div>
         </div>
       </div>
-      
+
       <h2 className="text-lg font-medium mb-3">学习类别</h2>
       <div className="grid gap-4">
-        {categories.map(category => (
-          <CategoryCard 
+        {categories.map((category) => (
+          <CategoryCard
             key={category.id}
             category={category}
             onClick={() => onCategorySelect(category.id)}
